@@ -14,9 +14,6 @@ audio::audio(QWidget *parent)
 {
 	ui.setupUi(this);
 
-	m_projectMenu = new QMenu(this);
-	m_itemMenu = new QMenu(this);
-
 	initWidget();
 }
 
@@ -97,6 +94,7 @@ void audio::onAddFileToPlayList()
 
 	m_pMusicPlayer->setPlaylist(playList);
 	m_pCurrentPlayList = playList;
+	ui.treeView->expandAll();
 }
 
 void audio::onPlayItem(QModelIndex itemIndex)
@@ -195,25 +193,28 @@ void audio::initWidget()
 void audio::OnShowContextMenu(const QPoint& pos)
 {
 	QModelIndex modelIndex = ui.treeView->currentIndex();
-	if (modelIndex.model()->rowCount() == 0)
+	
+	if (!modelIndex.parent().isValid())
 	{
+		QMenu projectMenu;
 		QAction* addAction = nullptr;
 		addAction = new QAction(QStringLiteral("添加歌曲"), this);
-		m_projectMenu->addAction(addAction);
+		projectMenu.addAction(addAction);
 
 		QAction* deleteAction = nullptr;
 		deleteAction = new QAction(QStringLiteral("删除列表"), this);
-		m_projectMenu->addAction(deleteAction);
+		projectMenu.addAction(deleteAction);
 
 		//! 显示该菜单，进入消息循环
-		m_projectMenu->exec(pos/*全局位置*/);
+		projectMenu.exec(QCursor::pos());
 	}
 	else
 	{
+		QMenu itemMenu;
 		QAction* deleteAction = nullptr;
 		deleteAction = new QAction(QStringLiteral("删除歌曲"), this);
-		m_itemMenu->addAction(deleteAction);
+		itemMenu.addAction(deleteAction);
 		//! 显示该菜单，进入消息循环
-		m_itemMenu->exec(pos/*全局位置*/);
+		itemMenu.exec(QCursor::pos());
 	}
 }

@@ -35,6 +35,4 @@ private:
 	QStandardItemModel* m_pModel;
 	QMap<QString, QMediaPlaylist *> m_playLists;
 	QMediaPlaylist *m_pCurrentPlayList;
-	QMenu *m_projectMenu;
-	QMenu *m_itemMenu;
 };
