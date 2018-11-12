@@ -28,6 +28,9 @@ private slots:
 	void onPlayPrevious();
 	void onAutoPlayNext(QMediaPlayer::MediaStatus);
 	void OnShowContextMenu(const QPoint&);
+	void slotAddItem();
+	void slotDelList();
+	void slotDelItem();
 
 private:
 	Ui::audioClass ui;

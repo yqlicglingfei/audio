@@ -106,6 +106,10 @@ void audio::onPlayItem(QModelIndex itemIndex)
 
 void audio::onPlayNext()
 {
+	if (NULL == m_pCurrentPlayList)
+	{
+		return;
+	}
 	QModelIndex modelIndex = ui.treeView->currentIndex();
 
 	//计算ui和数据中的当前index
@@ -199,10 +203,12 @@ void audio::OnShowContextMenu(const QPoint& pos)
 		QMenu projectMenu;
 		QAction* addAction = nullptr;
 		addAction = new QAction(QStringLiteral("添加歌曲"), this);
+		connect(addAction, SIGNAL(triggered()), this, SLOT(slotAddItem()));
 		projectMenu.addAction(addAction);
 
 		QAction* deleteAction = nullptr;
 		deleteAction = new QAction(QStringLiteral("删除列表"), this);
+		connect(deleteAction, SIGNAL(triggered()), this, SLOT(slotDelList()));
 		projectMenu.addAction(deleteAction);
 
 		//! 显示该菜单，进入消息循环
@@ -213,8 +219,58 @@ void audio::OnShowContextMenu(const QPoint& pos)
 		QMenu itemMenu;
 		QAction* deleteAction = nullptr;
 		deleteAction = new QAction(QStringLiteral("删除歌曲"), this);
+		connect(deleteAction, SIGNAL(triggered()), this, SLOT(slotDelItem()));
 		itemMenu.addAction(deleteAction);
 		//! 显示该菜单，进入消息循环
 		itemMenu.exec(QCursor::pos());
 	}
+}
+
+void audio::slotAddItem()
+{
+	QStringList allFiles = QFileDialog::getOpenFileNames(this, "Select one or more to open", nullptr, "mp3(*.mp3)");
+
+	if (allFiles.empty())
+	{
+		return;
+	}
+
+	QList<QMediaContent> itemList;
+	for (auto file : allFiles)
+	{
+		file.replace(QString("/"), QString("\\"));
+		itemList.append(QMediaContent(QUrl::fromLocalFile(file)));
+	}
+
+	m_pCurrentPlayList->addMedia(itemList);
+	
+	QString text;
+	for (auto it = m_playLists.begin(); it != m_playLists.end(); ++it)
+	{
+		if (it.value() == m_pCurrentPlayList)
+		{
+			text = it.key();
+			break;
+		}
+	}
+	QList<QStandardItem*> listItems = m_pModel->findItems(text);
+	QStandardItem *headItem = listItems.first();
+	
+	for (auto file : allFiles)
+	{
+		QString fileName = file.split("/").back();
+		QStandardItem* item = new QStandardItem(fileName);
+		headItem->appendRow(item);
+	}
+
+	m_pMusicPlayer->setPlaylist(m_pCurrentPlayList);
+}
+
+void audio::slotDelList()
+{
+}
+
+void audio::slotDelItem()
+{
+
 }
