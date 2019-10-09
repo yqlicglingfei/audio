@@ -6,6 +6,7 @@
 #include <QMap>
 #include <QStandardItemModel>
 #include <QMenu>
+#include <QSharedPointer>
 #include "ui_audio.h"
 
 class audio : public QWidget
@@ -14,6 +15,7 @@ class audio : public QWidget
 
 public:
 	audio(QWidget *parent = Q_NULLPTR);
+    ~audio();
 	void initWidget();
 
 private slots:
@@ -34,8 +36,8 @@ private slots:
 
 private:
 	Ui::audioClass ui;
-	QMediaPlayer *m_pMusicPlayer;
-	QStandardItemModel* m_pModel;
-	QMap<QString, QMediaPlaylist *> m_playLists;
-	QMediaPlaylist *m_pCurrentPlayList;
+    QSharedPointer<QMediaPlayer>m_pMusicPlayer;
+    QSharedPointer <QStandardItemModel> m_pModel;
+	QMap<QString, QSharedPointer<QMediaPlaylist>> m_playLists;
+	QSharedPointer<QMediaPlaylist>m_pCurrentPlayList;
 };

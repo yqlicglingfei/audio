@@ -70,7 +70,7 @@ void audio::onAddFileToPlayList()
 		return;
 	}
 
-	QMediaPlaylist *playList = new QMediaPlaylist;
+	QSharedPointer<QMediaPlaylist> playList = QSharedPointer<QMediaPlaylist>(new QMediaPlaylist);
 	QList<QMediaContent> itemList;
 	for (auto file : allFiles)
 	{
@@ -90,18 +90,31 @@ void audio::onAddFileToPlayList()
 		QString fileName = file.split("/").back();
 		QStandardItem* item = new QStandardItem(fileName);
 		list->appendRow(item);
+        //m_pModel->appendRow(item);
 	}
 
-	m_pMusicPlayer->setPlaylist(playList);
+	m_pMusicPlayer->setPlaylist(playList.data());
 	m_pCurrentPlayList = playList;
 	ui.treeView->expandAll();
 }
 
 void audio::onPlayItem(QModelIndex itemIndex)
 {
-	int index = itemIndex.row();
-	m_pMusicPlayer->setMedia(m_pCurrentPlayList->media(index));
-	m_pMusicPlayer->play();
+    QModelIndex parentItem = itemIndex.parent();
+    if (parentItem.isValid())
+    {
+        //auto item = m_pModel->findItems(parentItem.data().toString()).at(0);
+        auto it = m_playLists.find(parentItem.data().toString());
+        auto item = it.value();
+        qDebug() << it.key();
+
+        m_pCurrentPlayList = item;
+        m_pMusicPlayer->setPlaylist(m_pCurrentPlayList.data());
+
+        int index = itemIndex.row();
+        m_pMusicPlayer->setMedia(m_pCurrentPlayList->media(index));
+        m_pMusicPlayer->play();
+    }
 }
 
 void audio::onPlayNext()
@@ -148,17 +161,22 @@ void audio::onAutoPlayNext(QMediaPlayer::MediaStatus status)
 	}
 }
 
+audio::~audio()
+{
+
+}
+
 void audio::initWidget()
 {
 	// 初始化播放器
-	m_pMusicPlayer = new QMediaPlayer();
+	m_pMusicPlayer = QSharedPointer<QMediaPlayer>(new QMediaPlayer());
 	m_pMusicPlayer->setVolume(1);
 
-	m_pModel = new QStandardItemModel(ui.treeView);
+	m_pModel = QSharedPointer <QStandardItemModel>(new QStandardItemModel(ui.treeView));
 	ui.treeView->setHeaderHidden(true);
 	ui.treeView->setEditTriggers(QTreeView::NoEditTriggers);
 
-	ui.treeView->setModel(m_pModel);
+	ui.treeView->setModel(m_pModel.data());
 	ui.treeView->setContextMenuPolicy(Qt::CustomContextMenu);
 
 	// 设置音量范围
@@ -167,12 +185,12 @@ void audio::initWidget()
 	connect(ui.treeView, SIGNAL(customContextMenuRequested(const QPoint&)), this, SLOT(OnShowContextMenu(const QPoint&)));
 
 	// sound change
-	connect(ui.horizontalSlider_sound, SIGNAL(valueChanged(int)), m_pMusicPlayer, SLOT(setVolume(int)));
-	connect(m_pMusicPlayer, SIGNAL(volumeChanged(int)), ui.horizontalSlider_sound, SLOT(setValue(int)));
+	connect(ui.horizontalSlider_sound, SIGNAL(valueChanged(int)), m_pMusicPlayer.data(), SLOT(setVolume(int)));
+	connect(m_pMusicPlayer.data(), SIGNAL(volumeChanged(int)), ui.horizontalSlider_sound, SLOT(setValue(int)));
 
 	// player progress change
-	connect(m_pMusicPlayer, SIGNAL(positionChanged(qint64)), this, SLOT(onUpdateSlider(qint64)));
-	connect(m_pMusicPlayer, SIGNAL(durationChanged(qint64)), this, SLOT(onSetSliderLen(qint64)));
+	connect(m_pMusicPlayer.data(), SIGNAL(positionChanged(qint64)), this, SLOT(onUpdateSlider(qint64)));
+	connect(m_pMusicPlayer.data(), SIGNAL(durationChanged(qint64)), this, SLOT(onSetSliderLen(qint64)));
 	connect(ui.horizontalSlider_progress, SIGNAL(sliderMoved(int)), this, SLOT(onSetProgress(int)));
 
 	// player start, stop and pause
@@ -191,7 +209,7 @@ void audio::initWidget()
 	connect(ui.pushButton_previous, SIGNAL(clicked()), this, SLOT(onPlayPrevious()));
 
 	// auto play next
-	connect(m_pMusicPlayer, SIGNAL(mediaStatusChanged(QMediaPlayer::MediaStatus)), this, SLOT(onAutoPlayNext(QMediaPlayer::MediaStatus)));
+	connect(m_pMusicPlayer.data(), SIGNAL(mediaStatusChanged(QMediaPlayer::MediaStatus)), this, SLOT(onAutoPlayNext(QMediaPlayer::MediaStatus)));
 }
 
 void audio::OnShowContextMenu(const QPoint& pos)
@@ -228,7 +246,18 @@ void audio::OnShowContextMenu(const QPoint& pos)
 
 void audio::slotAddItem()
 {
-	QStringList allFiles = QFileDialog::getOpenFileNames(this, "Select one or more to open", nullptr, "mp3(*.mp3)");
+    QString currentPlayListName;
+    QModelIndex modelIndex = ui.treeView->currentIndex();
+    //auto item = m_pModel->findItems(modelIndex.data().toString(), Qt::MatchRecursive);
+    //item.at(0)->row();
+
+    auto list = std::find_if(m_playLists.begin(), m_playLists.end(), [&](QSharedPointer<QMediaPlaylist> it) { return (it == m_pCurrentPlayList); });
+    if (list != m_playLists.end())
+    {
+        currentPlayListName = list.key();
+    }
+
+    QStringList allFiles = QFileDialog::getOpenFileNames(this, "Select one or more to open", nullptr, "mp3(*.mp3)");
 
 	if (allFiles.empty())
 	{
@@ -242,18 +271,26 @@ void audio::slotAddItem()
 		itemList.append(QMediaContent(QUrl::fromLocalFile(file)));
 	}
 
-	m_pCurrentPlayList->addMedia(itemList);
-	
-	QString text;
-	for (auto it = m_playLists.begin(); it != m_playLists.end(); ++it)
-	{
-		if (it.value() == m_pCurrentPlayList)
-		{
-			text = it.key();
-			break;
-		}
-	}
-	QList<QStandardItem*> listItems = m_pModel->findItems(text);
+    if (modelIndex.data().toString() == currentPlayListName)
+    {
+        m_pCurrentPlayList->addMedia(itemList);
+        //m_pMusicPlayer->setPlaylist(m_pCurrentPlayList.data());
+    }
+    else
+    {
+        m_playLists.find(modelIndex.data().toString()).value().data()->addMedia(itemList);
+    }
+
+	//QString text;
+	//for (auto it = m_playLists.begin(); it != m_playLists.end(); ++it)
+	//{
+	//	if (it.value() == m_pCurrentPlayList)
+	//	{
+	//		text = it.key();
+	//		break;
+	//	}
+	//}
+	QList<QStandardItem*> listItems = m_pModel->findItems(modelIndex.data().toString());
 	QStandardItem *headItem = listItems.first();
 	
 	for (auto file : allFiles)
@@ -263,14 +300,59 @@ void audio::slotAddItem()
 		headItem->appendRow(item);
 	}
 
-	m_pMusicPlayer->setPlaylist(m_pCurrentPlayList);
+	//m_pMusicPlayer->setPlaylist(m_pCurrentPlayList.data());
+    //m_pMusicPlayer->play();
 }
 
 void audio::slotDelList()
 {
+    QModelIndex modelIndex = ui.treeView->currentIndex();
+    auto item = m_pModel->findItems(modelIndex.data().toString());
+    qDebug() << modelIndex.data();
+    auto it = m_playLists.find(modelIndex.data().toString());
+    if (it != m_playLists.end())
+    {
+        m_playLists.erase(it);
+    }
+    m_pModel->removeRow(item.at(0)->row());
+    m_pMusicPlayer->stop();
 }
 
 void audio::slotDelItem()
 {
+    QModelIndex modelIndex = ui.treeView->currentIndex();
+    //找到当前节点的父节点
+    QModelIndex parentModel = modelIndex.parent();
 
+    auto item = m_pModel->findItems(modelIndex.data().toString(), Qt::MatchRecursive);
+    qDebug() << modelIndex.data() << m_pModel.data()->itemFromIndex(modelIndex);
+
+    if (!item.empty())
+    {
+        if (item.at(0)->parent()->index() == parentModel)
+        {
+            if (m_pCurrentPlayList->currentIndex() == modelIndex.row())
+            {
+                m_pMusicPlayer->stop();
+            }
+        }
+        m_pCurrentPlayList->removeMedia(modelIndex.row());
+    }
+
+    if (parentModel.isValid())
+    {
+        //QModelIndex index = parentModel.model()->findChild<QModelIndex>(modelIndex.data().toString());
+        //if (index.isValid())
+        //{
+        //    if (m_pCurrentPlayList->currentIndex() == modelIndex.row())
+        //    {
+        //        m_pMusicPlayer->stop();
+        //    }
+        //    m_pCurrentPlayList->removeMedia(modelIndex.row());
+        //}
+
+        //m_pMusicPlayer->media();
+        m_pModel->removeRow(modelIndex.row(), parentModel);
+    }
+    //m_pMusicPlayer->stop();
 }
