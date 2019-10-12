@@ -3,6 +3,11 @@
 #include <QAction>
 #include <qinputdialog.h>
 #include <qlineedit.h>
+#include <QNetWorkAccessmanager>
+#include <QNetWorkRequest>
+#include <QByteArray>
+
+//#define MP3_URL "http://mp3.baidu.com/dev/api/?"
 
 //获取当前exe所在路径
 const QString runPath = QCoreApplication::applicationDirPath();
@@ -27,6 +32,7 @@ void audio::onPlayMedia()
 	{
 		m_pMusicPlayer->pause();
 	}
+    setWindowTitle(m_pMusicPlayer->currentMedia().canonicalUrl().toString());
 }
 
 void audio::onReplayMedia()
@@ -114,6 +120,10 @@ void audio::onPlayItem(QModelIndex itemIndex)
         int index = itemIndex.row();
         m_pMusicPlayer->setMedia(m_pCurrentPlayList->media(index));
         m_pMusicPlayer->play();
+
+        QString str = itemIndex.data().toString();
+        QString title = windowTitle().split("-").front();
+        setWindowTitle(title + "-" + str);
     }
 }
 
